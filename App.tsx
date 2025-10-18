@@ -1,45 +1,37 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React, { useEffect } from 'react';
+import { Provider, useSelector } from 'react-redux';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { store } from '@/store';
+import { queryClient, restoreQueryClient } from '@/utils/queryClient';
+import AppNavigator from '@/navigation/AppNavigator';
+import LockScreen from '@/components/LockScreen';
+import { RootState } from '@/store';
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+const AppContent: React.FC = () => {
+  const { isLocked } = useSelector((state: RootState) => state.app);
+  const { isAuthenticated } = useSelector((state: RootState) => state.auth);
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
-  return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
-  );
-}
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
+  // Restore cached queries on app start
+  useEffect(() => {
+    restoreQueryClient();
+  }, []);
 
   return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
+    <>
+      <AppNavigator />
+      {isAuthenticated && <LockScreen visible={isLocked} />}
+    </>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
+const App: React.FC = () => {
+  return (
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <AppContent />
+      </QueryClientProvider>
+    </Provider>
+  );
+};
 
 export default App;

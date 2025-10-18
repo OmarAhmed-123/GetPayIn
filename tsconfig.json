@@ -1,5 +1,14 @@
 {
   "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    // This tells TypeScript that the base for our paths is the root directory.
+    "baseUrl": ".",
+    // This is the final fix: It maps the "@/" alias to the "src/" directory.
+    // Now, both Metro and your code editor will understand your imports.
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["**/node_modules", "**/Pods"]
 }
