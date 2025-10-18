@@ -34,3 +34,4 @@ const appSlice = createSlice({
 
 export const { lockApp, unlockApp, updateActivity, setOnlineStatus, resetApp } = appSlice.actions;
 export default appSlice.reducer;
+

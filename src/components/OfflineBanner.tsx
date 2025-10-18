@@ -1,5 +1,13 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet } from 'react-native';
+import Animated, { 
+  FadeInDown, 
+  FadeOutUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 interface OfflineBannerProps {
@@ -7,13 +15,35 @@ interface OfflineBannerProps {
 }
 
 const OfflineBanner: React.FC<OfflineBannerProps> = ({ visible }) => {
+  const iconScale = useSharedValue(1);
+
+  React.useEffect(() => {
+    if (visible) {
+      iconScale.value = withRepeat(
+        withTiming(1.2, { duration: 1000 }),
+        -1,
+        true
+      );
+    }
+  }, [visible, iconScale]);
+
+  const iconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: iconScale.value }],
+  }));
+
   if (!visible) return null;
 
   return (
-    <View style={styles.container}>
-      <Icon name="wifi-off" size={16} color="#ffffff" />
+    <Animated.View 
+      style={styles.container}
+      entering={FadeInDown.springify()}
+      exiting={FadeOutUp.springify()}
+    >
+      <Animated.View style={iconAnimatedStyle}>
+        <Icon name="wifi-off" size={16} color="#ffffff" />
+      </Animated.View>
       <Text style={styles.text}>You're offline. Some features may be limited.</Text>
-    </View>
+    </Animated.View>
   );
 };
 

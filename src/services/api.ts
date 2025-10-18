@@ -15,14 +15,19 @@ class ApiService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    // Sanitize endpoint to prevent path traversal attacks
+    const sanitizedEndpoint = endpoint.replace(/[^a-zA-Z0-9/\-_]/g, '');
     const token = this.getAuthToken();
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${API_BASE_URL}${sanitizedEndpoint}`;
+
+    // Validate token format to prevent injection attacks
+    const isValidToken = token && /^[a-zA-Z0-9._-]+$/.test(token);
 
     const config: RequestInit = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` }),
+        ...(isValidToken && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
     };
@@ -31,10 +36,33 @@ class ApiService {
       const response = await fetch(url, config);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        let errorData;
+        try {
+          const responseText = await response.text();
+          // Limit response size to prevent memory exhaustion
+          if (responseText.length > 10000) {
+            throw new Error('Response too large');
+          }
+          errorData = JSON.parse(responseText);
+        } catch {
+          throw new Error(response.statusText || `HTTP error! status: ${response.status}`);
+        }
+        // Sanitize error message to prevent XSS
+        const sanitizedMessage = errorData.message?.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        throw new Error(sanitizedMessage || `HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      if (response.status === 204 || response.headers.get('Content-Length') === '0') {
+        return {} as T;
+      }
+
+      const responseText = await response.text();
+      // Limit response size to prevent memory exhaustion
+      if (responseText.length > 1000000) { // 1MB limit
+        throw new Error('Response too large');
+      }
+      
+      return JSON.parse(responseText);
     } catch (error) {
       console.error('API request failed:', error);
       throw error;
@@ -42,44 +70,78 @@ class ApiService {
   }
 
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    // DummyJSON doesn't have a real auth endpoint, so we'll simulate login
-    // In a real app, you would use a proper authentication service
-    
-    // For demo purposes, we'll create a mock user response
-    const mockUser: LoginResponse = {
-      id: 1,
-      username: credentials.username,
-      email: `${credentials.username}@example.com`,
-      firstName: 'John',
-      lastName: 'Doe',
-      gender: 'male',
-      image: 'https://i.dummyjson.com/data/users/1/avatar.jpg',
-      token: 'mock_jwt_token_' + Date.now()
-    };
-
-    // Store token for future requests
-    if (mockUser.token) {
-      storage.set('auth_token', mockUser.token);
-      storage.set('user_data', JSON.stringify(mockUser));
+    // Input validation to prevent injection attacks
+    if (!credentials.username || !credentials.password) {
+      throw new Error('Username and password are required');
     }
 
-    return mockUser;
+    // Sanitize inputs
+    const sanitizedCredentials = {
+      username: credentials.username.replace(/[<>"']/g, '').substring(0, 50),
+      password: credentials.password.substring(0, 100), // Limit password length
+    };
+
+    try {
+      const response = await this.makeRequest<LoginResponse>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify(sanitizedCredentials),
+      });
+
+      // Validate response structure
+      if (!response || typeof response !== 'object') {
+        throw new Error('Invalid response format');
+      }
+
+      if (response.token) {
+        // Validate token format
+        if (!/^[a-zA-Z0-9._-]+$/.test(response.token)) {
+          throw new Error('Invalid token format');
+        }
+        storage.set('auth_token', response.token);
+        storage.set('user_data', JSON.stringify(response));
+      }
+
+      return response;
+    } catch (error: any) {
+      // If API fails, create a mock user for demo purposes
+      console.log('API login failed, using mock authentication:', error.message);
+      
+      const mockUser: LoginResponse = {
+        id: 1,
+        username: sanitizedCredentials.username,
+        email: `${sanitizedCredentials.username}@example.com`,
+        firstName: 'Demo',
+        lastName: 'User',
+        gender: 'male',
+        image: 'https://i.dummyjson.com/data/users/1/avatar.jpg',
+        token: 'mock_jwt_token_' + Date.now()
+      };
+
+      // Store mock token
+      storage.set('auth_token', mockUser.token);
+      storage.set('user_data', JSON.stringify(mockUser));
+
+      return mockUser;
+    }
   }
 
   async getCurrentUser(): Promise<LoginResponse> {
-    // Return stored user data or throw error if not authenticated
-    const userData = this.getStoredUser();
-    if (!userData) {
+    try {
+      return await this.makeRequest<LoginResponse>('/auth/me');
+    } catch {
+      // Return stored user data if API fails
+      const userData = this.getStoredUser();
+      if (userData) {
+        return userData;
+      }
       throw new Error('User not authenticated');
     }
-    return userData;
   }
 
   async getProducts(): Promise<ProductsResponse> {
     return this.makeRequest<ProductsResponse>('/products');
   }
 
-  // Note: The API actually returns an array of strings directly, not an object.
   async getCategories(): Promise<string[]> {
     return this.makeRequest<string[]>('/products/categories');
   }
@@ -89,16 +151,8 @@ class ApiService {
   }
 
   async deleteProduct(productId: number): Promise<DeleteResponse> {
-    // DummyJSON doesn't support DELETE operations, so we'll simulate it
-    // In a real app, you would make an actual DELETE request
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          id: productId,
-          title: 'Deleted Product',
-          isDeleted: true
-        });
-      }, 500); // Simulate network delay
+    return this.makeRequest<DeleteResponse>(`/products/${productId}`, {
+      method: 'DELETE',
     });
   }
 
@@ -118,3 +172,4 @@ class ApiService {
 }
 
 export const apiService = new ApiService();
+

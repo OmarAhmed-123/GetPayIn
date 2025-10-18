@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  View,
   Text,
   StyleSheet,
   TouchableOpacity,
@@ -8,6 +7,15 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import Animated, { 
+  FadeIn, 
+  FadeInDown, 
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { useAppLock } from '../hooks/useAppLock';
 
@@ -18,6 +26,35 @@ interface LockScreenProps {
 const LockScreen: React.FC<LockScreenProps> = ({ visible }) => {
   const { unlockWithBiometrics } = useAppLock();
   const [isUnlocking, setIsUnlocking] = useState(false);
+  
+  const lockIconScale = useSharedValue(1);
+  const buttonScale = useSharedValue(1);
+
+  React.useEffect(() => {
+    if (visible) {
+      lockIconScale.value = withRepeat(
+        withTiming(1.1, { duration: 1000 }),
+        -1,
+        true
+      );
+    }
+  }, [visible, lockIconScale]);
+
+  const lockIconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: lockIconScale.value }],
+  }));
+
+  const buttonAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: buttonScale.value }],
+  }));
+
+  const handleButtonPressIn = () => {
+    buttonScale.value = withSpring(0.95);
+  };
+
+  const handleButtonPressOut = () => {
+    buttonScale.value = withSpring(1);
+  };
 
   const handleUnlock = async () => {
     setIsUnlocking(true);
@@ -42,30 +79,42 @@ const LockScreen: React.FC<LockScreenProps> = ({ visible }) => {
       animationType="fade"
       statusBarTranslucent
     >
-      <View style={styles.container}>
-        <View style={styles.content}>
-          <Icon name="lock" size={80} color="#6366f1" />
+      <Animated.View 
+        style={styles.container}
+        entering={FadeIn.duration(300)}
+      >
+        <Animated.View 
+          style={[styles.content]}
+          entering={FadeInDown.delay(200).springify()}
+        >
+          <Animated.View style={lockIconAnimatedStyle}>
+            <Icon name="lock" size={80} color="#6366f1" />
+          </Animated.View>
           <Text style={styles.title}>App Locked</Text>
           <Text style={styles.subtitle}>
             Use biometrics or password to unlock
           </Text>
           
-          <TouchableOpacity
-            style={[styles.unlockButton, isUnlocking && styles.unlockButtonDisabled]}
-            onPress={handleUnlock}
-            disabled={isUnlocking}
-          >
-            {isUnlocking ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <>
-                <Icon name="fingerprint" size={24} color="#ffffff" />
-                <Text style={styles.unlockButtonText}>Unlock</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
+          <Animated.View style={buttonAnimatedStyle}>
+            <TouchableOpacity
+              style={[styles.unlockButton, isUnlocking && styles.unlockButtonDisabled]}
+              onPress={handleUnlock}
+              onPressIn={handleButtonPressIn}
+              onPressOut={handleButtonPressOut}
+              disabled={isUnlocking}
+            >
+              {isUnlocking ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <>
+                  <Icon name="fingerprint" size={24} color="#ffffff" />
+                  <Text style={styles.unlockButtonText}>Unlock</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 };

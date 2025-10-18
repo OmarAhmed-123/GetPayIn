@@ -83,5 +83,5 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Products: undefined;
-  Category: { category: string };
+  SignOut: undefined;
 };

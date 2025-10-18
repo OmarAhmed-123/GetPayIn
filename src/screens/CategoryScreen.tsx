@@ -8,12 +8,13 @@ import {
 } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-// **FIX**: Changed alias paths to relative paths
 import { useProductsByCategory } from '../hooks/useProducts';
 import { useAppLock } from '../hooks/useAppLock';
 import ProductCard from '../components/ProductCard';
 import OfflineBanner from '../components/OfflineBanner';
 import { RootStackParamList, Product } from '../types';
+import { useSelector } from 'react-redux';
+import { RootState } from '../store';
 
 type CategoryScreenRouteProp = RouteProp<RootStackParamList, 'Category'>;
 
@@ -22,6 +23,7 @@ const CategoryScreen: React.FC = () => {
   const { category } = route.params;
   const { data, isLoading, error, refetch, isFetching } = useProductsByCategory(category);
   const { updateActivityTime } = useAppLock();
+  const { isOnline } = useSelector((state: RootState) => state.app);
 
   useEffect(() => {
     updateActivityTime();
@@ -48,7 +50,7 @@ const CategoryScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <OfflineBanner visible={!data && !isLoading} />
+      <OfflineBanner visible={!isOnline} />
       
       <View style={styles.header}>
         <Text style={styles.title}>{category}</Text>
@@ -143,3 +145,4 @@ const styles = StyleSheet.create({
 });
 
 export default CategoryScreen;
+

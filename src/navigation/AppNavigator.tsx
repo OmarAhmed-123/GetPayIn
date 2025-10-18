@@ -3,9 +3,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import { useSelector } from 'react-redux';
-// **FIX**: Changed alias paths to relative paths
-import { RootState } from '../store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '../store';
+import { logout } from '../store/authSlice';
 import LoginScreen from '../screens/LoginScreen';
 import ProductsScreen from '../screens/ProductsScreen';
 import CategoryScreen from '../screens/CategoryScreen';
@@ -20,8 +20,9 @@ const getTabBarIcon = (routeName: string, color: string, size: number) => {
 
   if (routeName === 'Products') {
     iconName = 'inventory';
+  } else if (routeName === 'SignOut') {
+    iconName = 'logout';
   } else {
-    // Assuming the other tab is 'Categories', you might need to add it
     iconName = 'category';
   }
 
@@ -29,6 +30,12 @@ const getTabBarIcon = (routeName: string, color: string, size: number) => {
 };
 
 const MainTabNavigator: React.FC = () => {
+  const dispatch = useDispatch<AppDispatch>();
+
+  const handleSignOut = () => {
+    dispatch(logout());
+  };
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -51,6 +58,19 @@ const MainTabNavigator: React.FC = () => {
         component={ProductsScreen}
         options={{
           title: 'All Products',
+        }}
+      />
+      <Tab.Screen
+        name="SignOut"
+        component={() => null}
+        options={{
+          title: 'Sign Out',
+        }}
+        listeners={{
+          tabPress: (e) => {
+            e.preventDefault();
+            handleSignOut();
+          },
         }}
       />
     </Tab.Navigator>
